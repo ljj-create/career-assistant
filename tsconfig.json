@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    /* DOM 是为了让 page.evaluate() 里的回调能写 document / HTMLInputElement；
+       Node 类型通过 types 显式引入，不要靠自动加载 */
+    "lib": ["ES2022", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* 用 node 原生类型擦除运行（不经过 tsx），所以运行时 import 必须写 .ts 后缀。
+       注意：import type 会被完全擦除，写哪种后缀都不影响运行。 */
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"]
+}

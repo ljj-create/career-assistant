@@ -1,0 +1,23 @@
+{
+  "name": "career-assistant-phase1",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phase 1：通过 CDP 连接已登录的测试 Chrome，读取表单并填写测试内容",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "connect": "node src/connect-browser.ts",
+    "observe": "node src/observe-page.ts",
+    "fill": "node src/fill-field.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "playwright-core": "^1.64.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "^6.0.2"
+  }
+}

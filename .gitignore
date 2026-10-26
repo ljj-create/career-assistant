@@ -1,0 +1,5 @@
+# 依赖
+node_modules/
+
+# 测试 Chrome 的用户目录，里面有真实登录态
+chrome-cdp-profile/
