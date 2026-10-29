@@ -201,6 +201,9 @@ function readFieldsInDom(): RawField[] {
   const labelInContainer = (container: Element, el: Element, isChoice: boolean): string => {
     const hits = container.querySelectorAll('label, .label, [class*="label"], [class*="title"], .name, .title');
     for (const hit of hits) {
+      // 组件内部的类 label 节点（如 mtd-select-filter-label，实为选中值/占位提示的展示位）
+      // 不是字段标签：控件未选中时其文本是占位词，选中后则是选中值本身
+      if (matchComponent(classOf(hit)) !== '') continue;
       // 单选/复选的选项通常也是 label 结构（如「<label><input type="radio">是</label>」），
       // 其文本是选项文字而非字段标签，命中时跳过并继续向后查找。
       if (
@@ -233,8 +236,10 @@ function readFieldsInDom(): RawField[] {
   const labelInPrevSibling = (node: Element, el: Element, isChoice: boolean): string => {
     let prev: Element | null = node.previousElementSibling;
     for (let i = 0; i < 3 && prev !== null; i += 1) {
+      // 组件内部节点（类名含组件关键词）不可能是字段标签
       const isLabelLike =
-        prev.tagName.toLowerCase() === 'label' || /label|title|name/i.test(classOf(prev));
+        (prev.tagName.toLowerCase() === 'label' || /label|title|name/i.test(classOf(prev))) &&
+        matchComponent(classOf(prev)) === '';
       // 相邻的同组选项也是 label 结构，其文本（如「是」）不是字段标签
       const isOptionLabel =
         isChoice &&
@@ -377,6 +382,45 @@ function readFieldsInDom(): RawField[] {
     return '';
   };
 
+  /**
+   * 读取组件类控件的显示值。
+   *
+   * @remarks
+   * mtd-select-filter 一类的筛选组件，其 `input` 不承载选中值（`value` 恒为空），
+   * 选中值渲染在组件的展示节点中。此函数向上找到 8 层内最外层的组件祖先，
+   * 克隆后剔除原生控件与占位/提示节点，取剩余文本作为显示值。
+   *
+   * 仅在原生值为空且控件可见时调用。
+   *
+   * @param el - 目标控件元素。
+   * @returns 显示值；无法取得（如仍为占位提示）返回空字符串。
+   */
+  const readComponentValue = (el: Element): string => {
+    let outermost: Element | null = null;
+    let node: Element | null = el.parentElement;
+    for (let depth = 0; depth < 8 && node !== null; depth += 1) {
+      if (matchComponent(classOf(node)) !== '') outermost = node;
+      node = node.parentElement;
+    }
+    if (outermost === null) return '';
+
+    const clone = outermost.cloneNode(true) as Element;
+    clone
+      .querySelectorAll(
+        'input, textarea, select, [class*="dropdown"], [class*="popup"], [class*="overlay"], [class*="option"], [class*="menu"], [class*="list"]',
+      )
+      .forEach((item) => item.remove());
+    clone
+      .querySelectorAll('[class*="placeholder"], [class*="hint"]')
+      .forEach((item) => item.remove());
+    const text = normalize(clone.textContent);
+    if (text === '' || text.length > 50) return '';
+    if (PLACEHOLDER_WORDS.test(text) || /^(请选择|请输入)/.test(text)) return '';
+    const placeholder = normalize(el.getAttribute('placeholder'));
+    if (placeholder !== '' && text === placeholder) return '';
+    return text;
+  };
+
   const nodes = Array.from(document.querySelectorAll('input, textarea, select'));
   const result: RawField[] = [];
   // 与 result 一一对应的节点引用，仅用于最终按 DOM 顺序排序，不随返回值序列化
@@ -402,6 +446,10 @@ function readFieldsInDom(): RawField[] {
     const disabled = el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true';
     const readonly =
       el.hasAttribute('readonly') || el.getAttribute('aria-readonly') === 'true';
+    const rawValue = readValue(el);
+    // 组件类控件（如 mtd-select-filter）的 input 不承载选中值，原生 value 为空时
+    // 改读组件的展示文本，否则已选中的下拉会显示为「当前值=(空)」
+    const value = rawValue === '' && component !== '' && visible ? readComponentValue(el) : rawValue;
 
     result.push({
       tag,
@@ -414,7 +462,7 @@ function readFieldsInDom(): RawField[] {
       candidates: found.candidates,
       component,
       placeholder: normalize(el.getAttribute('placeholder')),
-      value: readValue(el),
+      value,
       visible,
       enabled: !disabled,
       readonly,
